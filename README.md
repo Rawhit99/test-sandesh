@@ -17,7 +17,7 @@ This setup lets anyone run the service locally using pre-built Docker images —
 ## ⚙️ Setup Instructions
 
 1. **Clone or create a folder** for the project.  
-2. **Add the `.env` file** with your configuration (see example below).  
+2. **Add the `.env` file** with your configuration.  
 3. **Run the service:**
    ```bash
    docker compose up -d
