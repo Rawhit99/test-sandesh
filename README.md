@@ -1,142 +1,159 @@
-# 📧 Sandesh Email Service - Public Setup
+# Sandesh — Public Deployment
 
-The **Sandesh Email Service** lets you run a complete notification platform using prebuilt Docker images.
+Run the **Sandesh** notification platform using prebuilt Docker images from GitHub Container Registry (GHCR).
 
-It includes:
+Includes:
 - Subscriber management
 - Templates
 - Event trigger API
 - Queue-based processing (Redis worker)
 - Web UI + REST API
+- Channel integrations (SES, SMTP, Slack, etc.) configured in the dashboard — not in `.env`
 
-This repository is **deployment-only**. You don't need source code to run it.
+This repository is **deployment-only**. You do not need the source code to run it.
+
+**Source & contributions:** https://github.com/Rawhit99/sandesh-email-service
 
 ---
 
-## 🚀 Quick Start
+## Quick start
 
 ### Prerequisites
+
 - Docker
 - Docker Compose
+- **PostgreSQL** and **Redis** reachable from the containers (managed cloud, or your own hosts)
+- GHCR access if images are private (`docker login ghcr.io`)
 
 ### Setup
 
-1. Copy env file:
-   ```bash
-   cp .env.example .env
-   ```
-   PowerShell:
-   ```powershell
-   Copy-Item .env.example .env
-   ```
+1. Create `docker-compose.yml` and `.env` from the sections below (or copy this repo’s files).
 
-2. Update `.env` values (especially image names, DB URL, and JWT secret).
+2. Copy env values into `.env` (see **`.env.example`** section).
 
-3. Start:
+3. Edit `.env`:
+   - Image names (GHCR defaults below)
+   - `DATABASE_URL` and `REDIS_URL` (your external instances)
+   - `JWT_SECRET_KEY` (long random secret)
+   - `PLATFORM_ADMIN_USERNAME`, `PLATFORM_ADMIN_PASSWORD`, `DEFAULT_ORGANIZATION`
+   - `REACT_APP_API_URL` and `CORS_ALLOW_ORIGINS` (must match how users reach the app)
+
+4. Start:
+
    ```bash
    docker compose up -d
    ```
 
-4. Open:
-   - Frontend: `http://localhost:3000`
-   - Backend health: `http://localhost:8000/health`
-   - API docs: `http://localhost:8000/docs`
+5. Open:
+
+   | Service | URL |
+   |---------|-----|
+   | Frontend | http://localhost:3000 |
+   | Backend health | http://localhost:8000/health |
+   | API docs | http://localhost:8000/docs |
+
+6. Log in with the platform admin credentials from `.env` (created on first startup when bootstrap vars are set).
 
 ---
 
-## 📦 Required Files in This Public Repo
+## Required files in deployment repo
 
-- `docker-compose.yml`
-- `.env.example`
-- `README.md`
+- `docker-compose.yml` — copy from section below
+- `.env` — copy from `.env.example` section below
+- `README.md` — optional; this file can serve as the README
 
 ---
 
-## 🧾 .env.example
+## Prebuilt images (GHCR)
+
+Published from https://github.com/Rawhit99/sandesh-email-service on merge to `main`:
+
+| Role | Image |
+|------|--------|
+| Backend + worker | `ghcr.io/rawhit99/sandesh-email-service-backend:latest` |
+| Frontend | `ghcr.io/rawhit99/sandesh-email-service-frontend:latest` |
+
+If packages are private:
+
+```bash
+docker login ghcr.io
+# GitHub username + PAT with read:packages
+```
+
+---
+
+## File: `.env.example`
+
+Copy everything below into `.env` and edit values.
 
 ```env
-# Images
-SANDESH_BACKEND_IMAGE=rohithakur0208/sandesh-email-backend:latest
-SANDESH_FRONTEND_IMAGE=rohithakur0208/sandesh-email-frontend:latest
+# =========================
+# Images (pull from GHCR)
+# =========================
+SANDESH_BACKEND_IMAGE=ghcr.io/rawhit99/sandesh-email-service-backend:latest
+SANDESH_FRONTEND_IMAGE=ghcr.io/rawhit99/sandesh-email-service-frontend:latest
 
-# Postgres
-POSTGRES_USER=postgres
-POSTGRES_PASSWORD=password
-POSTGRES_DB=emails
-POSTGRES_INITDB_ARGS=--encoding=UTF-8 --lc-collate=C --lc-ctype=C
-POSTGRES_EXPOSED_PORT=5433
-DATABASE_URL=postgresql://postgres:password@postgres:5432/emails
+# =========================
+# Database & Redis (external — not in this compose file)
+# =========================
+DATABASE_URL=postgresql://user:password@your-postgres-host:5432/emails
+REDIS_URL=redis://your-redis-host:6379/0
 
-# Redis
-REDIS_URL=redis://redis:6379/0
-REDIS_EXPOSED_PORT=6379
-
+# =========================
 # API / App
+# =========================
 API_HOST=0.0.0.0
 API_PORT=8000
 API_EXPOSED_PORT=8000
 PYTHONPATH=/app
 PYTHONUNBUFFERED=1
 
+# =========================
 # Auth
+# =========================
 JWT_SECRET_KEY=change-this-to-a-long-random-secret
 JWT_ALGORITHM=HS256
 JWT_ACCESS_TOKEN_EXPIRE_MINUTES=1440
-API_KEYS=1234
+API_KEYS=
 
-# Worker Queue
+# =========================
+# Platform bootstrap (first admin + default org)
+# =========================
+PLATFORM_ADMIN_USERNAME=admin
+PLATFORM_ADMIN_PASSWORD=change-me-strong-password
+DEFAULT_ORGANIZATION=Default Organization
+
+# =========================
+# Queue worker tuning
+# =========================
 QUEUE_WORKER_CONCURRENCY=8
 QUEUE_POLL_TIMEOUT_SECONDS=3
 QUEUE_MAX_RETRIES=5
 QUEUE_RETRY_BACKOFF_SECONDS=2
 
-# Frontend
+# =========================
+# Frontend / CORS
+# =========================
 FRONTEND_EXPOSED_PORT=3000
 REACT_APP_API_URL=http://localhost:8000
+CORS_ALLOW_ORIGINS=http://localhost:3000,http://127.0.0.1:3000
 
+# =========================
 # Compose
+# =========================
 COMPOSE_PROJECT_NAME=sandesh-email-service
 ```
 
+> **Note:** Email/SMS/Slack and other provider credentials are set in the **web UI** (Integrations), not in `.env`.
+
 ---
 
-## 🐳 docker-compose.yml
+## File: `docker-compose.yml`
+
+Copy everything below into `docker-compose.yml`.
 
 ```yaml
 services:
-  postgres:
-    image: postgres:15-alpine
-    environment:
-      POSTGRES_USER: ${POSTGRES_USER}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
-      POSTGRES_DB: ${POSTGRES_DB}
-      POSTGRES_INITDB_ARGS: ${POSTGRES_INITDB_ARGS}
-    ports:
-      - "${POSTGRES_EXPOSED_PORT:-5433}:5432"
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
-      interval: 10s
-      timeout: 5s
-      retries: 8
-      start_period: 30s
-    restart: unless-stopped
-
-  redis:
-    image: redis:7-alpine
-    command: ["redis-server", "--appendonly", "yes"]
-    ports:
-      - "${REDIS_EXPOSED_PORT:-6379}:6379"
-    volumes:
-      - redis_data:/data
-    healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
-      interval: 10s
-      timeout: 3s
-      retries: 10
-    restart: unless-stopped
-
   backend:
     image: ${SANDESH_BACKEND_IMAGE}
     environment:
@@ -150,13 +167,12 @@ services:
       JWT_ALGORITHM: ${JWT_ALGORITHM}
       JWT_ACCESS_TOKEN_EXPIRE_MINUTES: ${JWT_ACCESS_TOKEN_EXPIRE_MINUTES}
       API_KEYS: ${API_KEYS}
+      PLATFORM_ADMIN_USERNAME: ${PLATFORM_ADMIN_USERNAME}
+      PLATFORM_ADMIN_PASSWORD: ${PLATFORM_ADMIN_PASSWORD}
+      DEFAULT_ORGANIZATION: ${DEFAULT_ORGANIZATION}
+      CORS_ALLOW_ORIGINS: ${CORS_ALLOW_ORIGINS}
     ports:
       - "${API_EXPOSED_PORT:-8000}:${API_PORT}"
-    depends_on:
-      postgres:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:${API_PORT}/health"]
       interval: 20s
@@ -178,45 +194,36 @@ services:
       QUEUE_MAX_RETRIES: ${QUEUE_MAX_RETRIES}
       QUEUE_RETRY_BACKOFF_SECONDS: ${QUEUE_RETRY_BACKOFF_SECONDS}
     depends_on:
-      postgres:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
       backend:
         condition: service_healthy
     restart: unless-stopped
 
   frontend:
     image: ${SANDESH_FRONTEND_IMAGE}
+    environment:
+      REACT_APP_API_URL: ${REACT_APP_API_URL}
     ports:
       - "${FRONTEND_EXPOSED_PORT:-3000}:80"
     depends_on:
       backend:
         condition: service_healthy
     restart: unless-stopped
-
-volumes:
-  postgres_data:
-  redis_data:
 ```
 
 ---
 
-## 🧠 First-Time Platform Setup
+## First-time platform setup
 
-After containers are up:
+After containers are healthy:
 
-1. Open UI and register first user.
-2. Configure email integration in UI (SES/SMTP credentials).
-3. Create templates.
-4. Create subscribers.
-5. Trigger events using API or SDK.
-
-> Integration credentials are configured in the app UI, not required in `.env`.
+1. Open the UI and sign in with `PLATFORM_ADMIN_USERNAME` / `PLATFORM_ADMIN_PASSWORD`.
+2. In **Integrations**, add email (SES/SMTP) or other channel credentials.
+3. Create templates and subscribers.
+4. Trigger events via the API or sandesh-sdk.
 
 ---
 
-## 🐍 Python SDK
+## Python SDK
 
 Install:
 
@@ -247,7 +254,7 @@ print(response)
 
 ---
 
-## 🔌 API Example
+## API example
 
 ```bash
 curl --location 'http://localhost:8000/v1/events/trigger' \
@@ -264,56 +271,63 @@ curl --location 'http://localhost:8000/v1/events/trigger' \
 
 ---
 
-## 🛠️ Operations
+## Operations
 
 Start:
+
 ```bash
 docker compose up -d
 ```
 
 Logs:
+
 ```bash
 docker compose logs -f
+docker compose logs -f backend worker frontend
 ```
 
 Restart:
+
 ```bash
 docker compose restart
 ```
 
 Stop:
+
 ```bash
 docker compose down
 ```
 
-Stop + remove volumes:
+Pull latest images:
+
 ```bash
-docker compose down -v
+docker compose pull
+docker compose up -d
 ```
 
 ---
 
-## ❗Troubleshooting
+## Troubleshooting
 
-- Backend unhealthy:
-  - `docker compose logs backend`
-  - verify Postgres and `DATABASE_URL`
-- Worker not processing:
-  - `docker compose logs worker`
-  - verify Redis and `REDIS_URL`
-- Frontend can't call API:
-  - verify `API_EXPOSED_PORT` and `REACT_APP_API_URL`
-
----
-
-## 🔐 Security
-
-- Never commit real `.env`
-- Use strong secrets (`JWT_SECRET_KEY`)
-- Use HTTPS + reverse proxy for internet-facing deployment
+| Issue | What to check |
+|-------|----------------|
+| Backend unhealthy | `docker compose logs backend` — `DATABASE_URL`, `JWT_SECRET_KEY`, DB reachable from container |
+| Worker not processing | `docker compose logs worker` — `REDIS_URL`, Redis reachable, backend healthy |
+| Frontend cannot call API | `REACT_APP_API_URL` must be the URL **the browser** uses (not `http://backend:8000`). Match `CORS_ALLOW_ORIGINS` to the frontend origin |
+| Cannot pull images | `docker login ghcr.io`; confirm publish workflow ran on sandesh-email-service |
+| Login fails | Bootstrap vars set before first start |
 
 ---
 
-## 📄 License
+## Security
 
-This deployment repo is licensed under the **MIT License**.
+- Never commit a real `.env`
+- Use a strong `JWT_SECRET_KEY` and platform admin password
+- Put HTTPS and a reverse proxy in front for internet-facing deployments
+- Restrict network access to Postgres and Redis
+
+---
+
+## License
+
+MIT License
