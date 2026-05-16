@@ -1,37 +1,4 @@
 services:
-  postgres:
-    image: postgres:15-alpine
-    environment:
-      POSTGRES_USER: ${POSTGRES_USER}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
-      POSTGRES_DB: ${POSTGRES_DB}
-      POSTGRES_INITDB_ARGS: ${POSTGRES_INITDB_ARGS}
-    ports:
-      - "${POSTGRES_EXPOSED_PORT:-5433}:5432"
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
-      interval: 10s
-      timeout: 5s
-      retries: 8
-      start_period: 30s
-    restart: unless-stopped
-
-  redis:
-    image: redis:7-alpine
-    command: ["redis-server", "--appendonly", "yes"]
-    ports:
-      - "${REDIS_EXPOSED_PORT:-6379}:6379"
-    volumes:
-      - redis_data:/data
-    healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
-      interval: 10s
-      timeout: 3s
-      retries: 10
-    restart: unless-stopped
-
   backend:
     image: ${SANDESH_BACKEND_IMAGE}
     environment:
@@ -45,13 +12,12 @@ services:
       JWT_ALGORITHM: ${JWT_ALGORITHM}
       JWT_ACCESS_TOKEN_EXPIRE_MINUTES: ${JWT_ACCESS_TOKEN_EXPIRE_MINUTES}
       API_KEYS: ${API_KEYS}
+      PLATFORM_ADMIN_USERNAME: ${PLATFORM_ADMIN_USERNAME}
+      PLATFORM_ADMIN_PASSWORD: ${PLATFORM_ADMIN_PASSWORD}
+      DEFAULT_ORGANIZATION: ${DEFAULT_ORGANIZATION}
+      CORS_ALLOW_ORIGINS: ${CORS_ALLOW_ORIGINS}
     ports:
       - "${API_EXPOSED_PORT:-8000}:${API_PORT}"
-    depends_on:
-      postgres:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:${API_PORT}/health"]
       interval: 20s
@@ -73,23 +39,17 @@ services:
       QUEUE_MAX_RETRIES: ${QUEUE_MAX_RETRIES}
       QUEUE_RETRY_BACKOFF_SECONDS: ${QUEUE_RETRY_BACKOFF_SECONDS}
     depends_on:
-      postgres:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
       backend:
         condition: service_healthy
     restart: unless-stopped
 
   frontend:
     image: ${SANDESH_FRONTEND_IMAGE}
+    environment:
+      REACT_APP_API_URL: ${REACT_APP_API_URL}
     ports:
       - "${FRONTEND_EXPOSED_PORT:-3000}:80"
     depends_on:
       backend:
         condition: service_healthy
     restart: unless-stopped
-
-volumes:
-  postgres_data:
-  redis_data:
