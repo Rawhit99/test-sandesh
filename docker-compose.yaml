@@ -12,18 +12,22 @@ services:
       JWT_ALGORITHM: ${JWT_ALGORITHM}
       JWT_ACCESS_TOKEN_EXPIRE_MINUTES: ${JWT_ACCESS_TOKEN_EXPIRE_MINUTES}
       API_KEYS: ${API_KEYS}
+      CORS_ALLOW_ORIGINS: ${CORS_ALLOW_ORIGINS}
+      CORS_ALLOW_METHODS: ${CORS_ALLOW_METHODS}
+      CORS_ALLOW_HEADERS: ${CORS_ALLOW_HEADERS}
+      TRUSTED_HOSTS: ${TRUSTED_HOSTS}
       PLATFORM_ADMIN_USERNAME: ${PLATFORM_ADMIN_USERNAME}
       PLATFORM_ADMIN_PASSWORD: ${PLATFORM_ADMIN_PASSWORD}
       DEFAULT_ORGANIZATION: ${DEFAULT_ORGANIZATION}
-      CORS_ALLOW_ORIGINS: ${CORS_ALLOW_ORIGINS}
+      SUBSCRIBER_REQUIRED: "true"
     ports:
       - "${API_EXPOSED_PORT:-8000}:${API_PORT}"
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:${API_PORT}/health"]
-      interval: 20s
-      timeout: 5s
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
+      interval: 2s
+      timeout: 30s
       retries: 8
-      start_period: 30s
+      start_period: 20s
     restart: unless-stopped
 
   worker:
@@ -46,7 +50,7 @@ services:
   frontend:
     image: ${SANDESH_FRONTEND_IMAGE}
     environment:
-      REACT_APP_API_URL: ${REACT_APP_API_URL}
+        REACT_APP_API_URL: ${REACT_APP_API_URL}
     ports:
       - "${FRONTEND_EXPOSED_PORT:-3000}:80"
     depends_on:
